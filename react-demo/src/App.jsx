@@ -1,6 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import mapboxgl from "mapbox-gl";
 
+import homeHeroBackground from "../Data/Images/HomePage background.png";
+import landUsePatternsImg from "../Data/Images/Land Use Patterns and Urban Fabric.jpeg";
+import imperviousSurfaceImg from "../Data/Images/Intensive Urbanization and Impervious Surface Dominance.jpeg";
+import transportationModalImg from "../Data/Images/Transportation Infrastructure and Modal Networks.jpeg";
+import supportingMapFigureImg from "../Data/Images/page17_img2.jpeg";
+import demographicCompositionImg from "../Data/Images/Demographic Composition and Community Structure.jpeg";
+
 export default function App() {
   const [activePage, setActivePage] = useState("home");
   const [activeMetricId, setActiveMetricId] = useState("tree_canopy");
@@ -9,6 +16,9 @@ export default function App() {
   const [activeOverlayLayerId, setActiveOverlayLayerId] = useState("heat");
   const [overlayOpacity, setOverlayOpacity] = useState(0.6);
   const [mapZoom, setMapZoom] = useState(1);
+  const [navSearch, setNavSearch] = useState("");
+  const [navSearchResults, setNavSearchResults] = useState([]);
+  const [navSearchMeta, setNavSearchMeta] = useState({ query: "", totalMatches: 0 });
   const [csvOverlayStatus, setCsvOverlayStatus] = useState({
     loading: false,
     loaded: false,
@@ -557,6 +567,69 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
+  function goToPage(key) {
+    setActivePage(key);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function normalizeSearch(s) {
+    return (s || "")
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  function handleNavSearchSubmit() {
+    const q = normalizeSearch(navSearch);
+    if (!q) return;
+
+    const results = [];
+    let totalMatches = 0;
+
+    pages.forEach((p) => {
+      const el = document.getElementById(p.key);
+      if (!el) return;
+      const text = normalizeSearch(el.innerText);
+      if (!text) return;
+
+      const idx = text.indexOf(q);
+      if (idx === -1) return;
+
+      let count = 0;
+      let fromIndex = 0;
+      while (true) {
+        const next = text.indexOf(q, fromIndex);
+        if (next === -1) break;
+        count += 1;
+        fromIndex = next + q.length;
+      }
+
+      totalMatches += count;
+
+      const start = Math.max(0, idx - 42);
+      const end = Math.min(text.length, idx + q.length + 62);
+      const snippet = text.slice(start, end);
+
+      results.push({
+        key: p.key,
+        label: p.label,
+        matchCount: count,
+        snippet: `${start > 0 ? "…" : ""}${snippet}${end < text.length ? "…" : ""}`,
+      });
+    });
+
+    results.sort((a, b) => b.matchCount - a.matchCount);
+
+    setNavSearchMeta({ query: navSearch, totalMatches });
+    setNavSearchResults(results.slice(0, 8));
+  }
+
+  function clearNavSearchResults() {
+    setNavSearchResults([]);
+    setNavSearchMeta({ query: "", totalMatches: 0 });
+  }
+
   function goToSources() {
     setActivePage("sources");
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -612,6 +685,58 @@ export default function App() {
       <nav className="sidebar">
         <div className="nav-container">
           <div className="logo">BALDWIN HILLS</div>
+          <div className="nav-search">
+            <input
+              className="nav-search__input"
+              type="search"
+              value={navSearch}
+              onChange={(e) => setNavSearch(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  handleNavSearchSubmit();
+                }
+                if (e.key === "Escape") {
+                  e.preventDefault();
+                  clearNavSearchResults();
+                }
+              }}
+              placeholder="Search site…"
+              aria-label="Search site"
+            />
+            {navSearchResults.length > 0 && (
+              <div className="nav-search__results" role="region" aria-label="Search results">
+                <div className="nav-search__meta">
+                  <span>
+                    Results for <strong>{navSearchMeta.query}</strong>
+                  </span>
+                  <button type="button" className="nav-search__clear" onClick={clearNavSearchResults}>
+                    Clear
+                  </button>
+                </div>
+                <ul className="nav-search__list">
+                  {navSearchResults.map((r) => (
+                    <li key={r.key} className="nav-search__item">
+                      <button
+                        type="button"
+                        className="nav-search__button"
+                        onClick={() => {
+                          goToPage(r.key);
+                          clearNavSearchResults();
+                        }}
+                      >
+                        <div className="nav-search__title">
+                          <span>{r.label}</span>
+                          <span className="nav-search__count">{r.matchCount}</span>
+                        </div>
+                        <div className="nav-search__snippet">{r.snippet}</div>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
           <ul className="nav-links">
             {pages.map((p) => (
               <li key={p.key}>
@@ -631,7 +756,7 @@ export default function App() {
 
       <div className="content">
         <div id="home" className={activePage === "home" ? "page active" : "page"}>
-          <div className="hero hero-home">
+          <div className="hero hero-home" style={{ "--home-hero-bg": `url(${homeHeroBackground})` }}>
             <p className="hero-corner">Land Context and Infrastructure Report</p>
           </div>
 
@@ -764,7 +889,7 @@ export default function App() {
           <div className="cards-grid">
             <figure className="media">
               <img
-                src="/Data/Images/Land Use Patterns and Urban Fabric.jpeg"
+                src={landUsePatternsImg}
                 alt="Land Use Patterns and Urban Fabric"
                 loading="lazy"
               />
@@ -773,7 +898,7 @@ export default function App() {
 
             <figure className="media">
               <img
-                src="/Data/Images/Intensive Urbanization and Impervious Surface Dominance.jpeg"
+                src={imperviousSurfaceImg}
                 alt="Intensive Urbanization and Impervious Surface Dominance"
                 loading="lazy"
               />
@@ -880,7 +1005,7 @@ export default function App() {
           <div className="cards-grid">
             <figure className="media">
               <img
-                src="/Data/Images/Transportation Infrastructure and Modal Networks.jpeg"
+                src={transportationModalImg}
                 alt="Transportation Infrastructure and Modal Networks"
                 loading="lazy"
               />
@@ -889,7 +1014,7 @@ export default function App() {
 
             <figure className="media">
               <img
-                src="/Data/Images/page17_img2.jpeg"
+                src={supportingMapFigureImg}
                 alt="Supporting map figure"
                 loading="lazy"
               />
@@ -1125,7 +1250,7 @@ export default function App() {
           <div className="cards-grid">
             <figure className="media">
               <img
-                src="/Data/Images/Demographic Composition and Community Structure.jpeg"
+                src={demographicCompositionImg}
                 alt="Demographic Composition and Community Structure"
                 loading="lazy"
               />
